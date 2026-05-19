@@ -1,6 +1,5 @@
 """
 Модуль для роботи з Google Sheets
-Зберігає пробіги та читає список авто/карток
 """
 
 import os
@@ -52,17 +51,26 @@ def get_car_list():
         client = get_client()
         spreadsheet = client.open_by_key(SPREADSHEET_ID)
         sheet = spreadsheet.worksheet(CARS_SHEET)
-        records = sheet.get_all_records()
-
+        
+        # Читаємо всі дані як список списків (без заголовків)
+        all_values = sheet.get_all_values()
+        
+        if len(all_values) < 2:
+            return []
+        
+        # Рядок 0 = заголовки, далі дані
+        # Колонка 0 = Картка E100, 1 = Водій, 2 = Держ. номер
         cars = []
-        for row in records:
-            plate = str(row.get("Держ. номер", "")).strip()
-            driver = str(row.get("Водій", "")).strip()
+        for row in all_values[1:]:  # пропускаємо заголовок
+            if len(row) < 3:
+                continue
+            card = str(row[0]).strip()   # Картка E100
+            driver = str(row[1]).strip() # Водій
+            plate = str(row[2]).strip()  # Держ. номер
 
-            # Пропускаємо порожні, "Приватна", і рядки типу "PL 4 sztuk"
             if not plate:
                 continue
-            if plate in ("Приватна", "Авто"):
+            if plate in ("Приватна", "Авто", "Держ. номер"):
                 continue
             if "sztuk" in plate.lower():
                 continue
@@ -114,10 +122,10 @@ def save_mileage_record(
 def get_card_for_plate(spreadsheet, plate: str) -> str:
     try:
         sheet = spreadsheet.worksheet(CARS_SHEET)
-        records = sheet.get_all_records()
-        for row in records:
-            if str(row.get("Держ. номер", "")).strip() == plate:
-                return str(row.get("Картка E100", "")).strip()
+        all_values = sheet.get_all_values()
+        for row in all_values[1:]:
+            if len(row) >= 3 and str(row[2]).strip() == plate:
+                return str(row[0]).strip()
     except Exception as e:
         logger.error(f"Error finding card for plate {plate}: {e}")
     return ""
